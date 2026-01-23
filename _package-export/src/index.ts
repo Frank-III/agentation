@@ -20,37 +20,7 @@ export type { DemoAnnotation } from "./components/page-toolbar-css/PageFeedbackT
 export { default as AnnotationPopupCSS } from "./components/annotation-popup-css/AnnotationPopupCSS.svelte";
 
 // Icons (Svelte components)
-export {
-  IconClose,
-  IconPlus,
-  IconCheck,
-  IconCheckSmall,
-  IconListSparkle,
-  IconHelp,
-  IconCheckSmallAnimated,
-  IconCopyAlt,
-  IconCopyAnimated,
-  IconEye,
-  IconEyeAlt,
-  IconEyeClosed,
-  IconEyeAnimated,
-  IconPausePlayAnimated,
-  IconEyeMinus,
-  IconGear,
-  IconPauseAlt,
-  IconPause,
-  IconPlayAlt,
-  IconTrashAlt,
-  IconChatEllipsis,
-  IconCheckmark,
-  IconCheckmarkLarge,
-  IconCheckmarkCircle,
-  IconXmark,
-  IconXmarkLarge,
-  IconSun,
-  IconMoon,
-  AnimatedBunny,
-} from "./components/icons.svelte";
+export * from "./components/icons.svelte";
 
 // Utilities (for building custom UIs)
 export {
