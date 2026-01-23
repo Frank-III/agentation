@@ -468,12 +468,29 @@ $green: #34c759;
   border-radius: 0.375rem;
   pointer-events: none !important;
   white-space: nowrap;
-  max-width: 200px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 
   &.enter {
     animation: hoverTooltipIn 0.1s ease-out forwards;
+  }
+}
+
+.hoverSvelteInfo {
+  font-size: 0.5625rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  &::before {
+    content: '⚡ ';
+    opacity: 0.8;
   }
 }
 

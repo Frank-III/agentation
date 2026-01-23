@@ -27,6 +27,10 @@
     getNearbyElements,
   } from '../../utils/element-identification';
   import {
+    getSvelteComponentsString,
+    type SvelteDetectionMode,
+  } from '../../utils/svelte-detection';
+  import {
     loadAnnotations,
     saveAnnotations,
     getStorageKey,
@@ -46,6 +50,7 @@
     element: string;
     elementPath: string;
     rect: DOMRect | null;
+    svelteComponents?: string;
   };
 
   type OutputDetailLevel = 'compact' | 'standard' | 'detailed' | 'forensic';
@@ -55,6 +60,7 @@
     autoClearAfterCopy: boolean;
     annotationColor: string;
     blockInteractions: boolean;
+    svelteMode: SvelteDetectionMode;
   };
 
   const DEFAULT_SETTINGS: ToolbarSettings = {
@@ -62,7 +68,15 @@
     autoClearAfterCopy: false,
     annotationColor: '#3c82f7',
     blockInteractions: false,
+    svelteMode: 'filtered',
   };
+
+  const SVELTE_MODE_OPTIONS: { value: SvelteDetectionMode; label: string }[] = [
+    { value: 'filtered', label: 'Filtered' },
+    { value: 'smart', label: 'Smart' },
+    { value: 'all', label: 'All' },
+    { value: 'off', label: 'Off' },
+  ];
 
   const OUTPUT_DETAIL_OPTIONS: { value: OutputDetailLevel; label: string }[] = [
     { value: 'compact', label: 'Compact' },
@@ -168,6 +182,9 @@
         if (a.isMultiSelect && a.fullPath) {
           output += `*Forensic data shown for first element of selection*\n`;
         }
+        if (a.svelteComponents) {
+          output += `**Svelte Components:** ${a.svelteComponents}\n`;
+        }
         if (a.fullPath) {
           output += `**Full DOM Path:** ${a.fullPath}\n`;
         }
@@ -196,6 +213,9 @@
         output += `**Feedback:** ${a.comment}\n\n`;
       } else {
         output += `### ${i + 1}. ${a.element}\n`;
+        if (a.svelteComponents) {
+          output += `**Svelte:** ${a.svelteComponents}\n`;
+        }
         output += `**Location:** ${a.elementPath}\n`;
 
         if (detailLevel === 'detailed') {
@@ -249,6 +269,7 @@
     accessibility?: string;
     computedStyles?: string;
     nearbyElements?: string;
+    svelteComponents?: string;
   } | null>(null);
   let copied = $state(false);
   let cleared = $state(false);
@@ -498,6 +519,7 @@
       accessibility: pendingAnnotation.accessibility,
       computedStyles: pendingAnnotation.computedStyles,
       nearbyElements: pendingAnnotation.nearbyElements,
+      svelteComponents: pendingAnnotation.svelteComponents,
     };
 
     annotations = [...annotations, newAnnotation];
@@ -695,8 +717,11 @@
 
       const { name, path } = identifyElement(elementUnder);
       const rect = elementUnder.getBoundingClientRect();
+      const svelteComponents = settings.svelteMode !== 'off' 
+        ? getSvelteComponentsString(elementUnder, settings.svelteMode) 
+        : undefined;
 
-      hoverInfo = { element: name, elementPath: path, rect };
+      hoverInfo = { element: name, elementPath: path, rect, svelteComponents };
       hoverPosition = { x: e.clientX, y: e.clientY };
     };
 
@@ -765,6 +790,10 @@
         .map(([k, v]) => `${k}: ${v}`)
         .join('; ');
 
+      const svelteComponents = settings.svelteMode !== 'off' 
+          ? getSvelteComponentsString(elementUnder, settings.svelteMode) 
+          : undefined;
+
       pendingAnnotation = {
         x,
         y,
@@ -785,6 +814,7 @@
         accessibility: getAccessibilityInfo(elementUnder),
         computedStyles: computedStylesStr,
         nearbyElements: getNearbyElements(elementUnder),
+        svelteComponents,
       };
       hoverInfo = null;
     };
@@ -1497,6 +1527,38 @@
             </span>
           </button>
         </div>
+        <div class={styles.settingsRow}>
+          <div class="{styles.settingsLabel} {!isDarkMode ? styles.light : ''}">
+            Svelte Detection
+            <span class={styles.helpIcon} data-tooltip="Detect Svelte component hierarchy. Filtered: user components only. Smart: PascalCase only. All: everything. Off: disable.">
+              <IconHelp size={20} />
+            </span>
+          </div>
+          <button
+            class="{styles.cycleButton} {!isDarkMode ? styles.light : ''}"
+            onclick={() => {
+              const currentIndex = SVELTE_MODE_OPTIONS.findIndex(
+                (opt) => opt.value === settings.svelteMode
+              );
+              const nextIndex = (currentIndex + 1) % SVELTE_MODE_OPTIONS.length;
+              settings = { ...settings, svelteMode: SVELTE_MODE_OPTIONS[nextIndex].value };
+            }}
+          >
+            <span class={styles.cycleButtonText}>
+              {SVELTE_MODE_OPTIONS.find((opt) => opt.value === settings.svelteMode)?.label}
+            </span>
+            <span class={styles.cycleDots}>
+              {#each SVELTE_MODE_OPTIONS as option}
+                <span
+                  class="{styles.cycleDot} {!isDarkMode ? styles.light : ''} {settings.svelteMode ===
+                  option.value
+                    ? styles.active
+                    : ''}"
+                ></span>
+              {/each}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div class={styles.settingsSection}>
@@ -1803,6 +1865,9 @@
         )}px;"
       >
         {hoverInfo.element}
+        {#if hoverInfo.svelteComponents}
+          <span class={styles.hoverSvelteInfo}>{hoverInfo.svelteComponents}</span>
+        {/if}
       </div>
     {/if}
 

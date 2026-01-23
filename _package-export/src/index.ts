@@ -31,6 +31,15 @@ export {
   getElementClasses,
 } from "./utils/element-identification";
 
+// Svelte component detection
+export {
+  getSvelteComponents,
+  getSvelteComponentsString,
+  formatSvelteComponentPath,
+  isSvelteDevMode,
+  type SvelteDetectionMode,
+} from "./utils/svelte-detection";
+
 export {
   loadAnnotations,
   saveAnnotations,

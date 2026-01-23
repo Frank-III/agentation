@@ -18,6 +18,7 @@ export type Annotation = {
   computedStyles?: string;
   fullPath?: string;
   accessibility?: string;
+  svelteComponents?: string; // Svelte component tree (e.g., "App > Layout > Button")
   isMultiSelect?: boolean; // true if created via drag selection
   isFixed?: boolean; // true if element has fixed/sticky positioning (marker stays fixed)
 };
