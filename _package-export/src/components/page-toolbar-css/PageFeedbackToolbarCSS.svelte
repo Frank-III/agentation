@@ -109,12 +109,24 @@
     demoAnnotations?: DemoAnnotation[];
     demoDelay?: number;
     enableDemoMode?: boolean;
+    onAnnotationAdd?: (annotation: Annotation) => void;
+    onAnnotationDelete?: (annotation: Annotation) => void;
+    onAnnotationUpdate?: (annotation: Annotation) => void;
+    onAnnotationsClear?: (annotations: Annotation[]) => void;
+    onCopy?: (markdown: string) => void;
+    copyToClipboard?: boolean;
   }
 
   let {
     demoAnnotations,
     demoDelay = 1000,
     enableDemoMode = false,
+    onAnnotationAdd,
+    onAnnotationDelete,
+    onAnnotationUpdate,
+    onAnnotationsClear,
+    onCopy,
+    copyToClipboard = true,
   }: Props = $props();
 
   // =============================================================================
@@ -523,6 +535,7 @@
     };
 
     annotations = [...annotations, newAnnotation];
+    onAnnotationAdd?.(newAnnotation);
     recentlyAddedIdRef = newAnnotation.id;
     setTimeout(() => {
       recentlyAddedIdRef = null;
@@ -549,12 +562,14 @@
   }
 
   function deleteAnnotation(id: string) {
+    const annotation = annotations.find((a) => a.id === id);
     const deletedIndex = annotations.findIndex((a) => a.id === id);
     deletingMarkerId = id;
     exitingMarkers = new Set([...exitingMarkers, id]);
 
     setTimeout(() => {
       annotations = annotations.filter((a) => a.id !== id);
+      if (annotation) onAnnotationDelete?.(annotation);
       const newExiting = new Set(exitingMarkers);
       newExiting.delete(id);
       exitingMarkers = newExiting;
@@ -575,9 +590,11 @@
   function updateAnnotation(newComment: string) {
     if (!editingAnnotation) return;
 
+    const updated = { ...editingAnnotation, comment: newComment };
     annotations = annotations.map((a) =>
-      a.id === editingAnnotation!.id ? { ...a, comment: newComment } : a
+      a.id === updated.id ? updated : a
     );
+    onAnnotationUpdate?.(updated);
 
     editExiting = true;
     setTimeout(() => {
@@ -598,12 +615,14 @@
     const count = annotations.length;
     if (count === 0) return;
 
+    const toDelete = [...annotations];
     isClearing = true;
     cleared = true;
 
     const totalAnimationTime = count * 30 + 200;
     setTimeout(() => {
       annotations = [];
+      onAnnotationsClear?.(toDelete);
       animatedMarkers = new Set();
       localStorage.removeItem(getStorageKey(pathname));
       isClearing = false;
@@ -616,7 +635,10 @@
     const output = generateOutput(annotations, pathname, settings.outputDetail);
     if (!output) return;
 
-    await navigator.clipboard.writeText(output);
+    if (copyToClipboard) {
+      await navigator.clipboard.writeText(output);
+    }
+    onCopy?.(output);
     copied = true;
     setTimeout(() => (copied = false), 2000);
 
@@ -1301,6 +1323,7 @@
             };
 
             annotations = [...annotations, newAnnotation];
+            onAnnotationAdd?.(newAnnotation);
           }, annotationDelay)
         );
       });
