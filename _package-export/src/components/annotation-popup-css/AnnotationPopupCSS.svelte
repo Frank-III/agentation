@@ -6,7 +6,7 @@
   // Types
   // =============================================================================
 
-  interface Props {
+  export interface Props {
     /** Element name to display in header */
     element: string;
     /** Optional timestamp display (e.g., "@ 1.23s" for animation feedback) */

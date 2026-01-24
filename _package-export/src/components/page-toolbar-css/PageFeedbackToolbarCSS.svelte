@@ -105,7 +105,7 @@
     selectedText?: string;
   };
 
-  interface Props {
+  export interface Props {
     demoAnnotations?: DemoAnnotation[];
     demoDelay?: number;
     enableDemoMode?: boolean;
