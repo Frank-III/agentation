@@ -2,6 +2,9 @@
   "name": "agentation-monorepo",
   "version": "0.0.1",
   "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": ["@parcel/watcher", "rolldown"]
+  },
   "scripts": {
     "dev": "pnpm --filter agentation watch & pnpm --filter feedback-tool-example dev",
     "build": "pnpm --filter agentation build",

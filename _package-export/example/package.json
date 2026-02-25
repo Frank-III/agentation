@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "agentation": "^2.2.1",
     "agentation-svelte": "workspace:*",
     "framer-motion": "^12.28.1",
     "next": "^14.0.0",
