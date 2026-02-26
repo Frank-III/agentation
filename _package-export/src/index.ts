@@ -33,6 +33,18 @@ export {
   getElementPath,
   getNearbyText,
   getElementClasses,
+  // Shadow DOM helpers
+  closestCrossingShadow,
+  isInShadowDOM,
+  getShadowHost,
+  // Forensic utilities
+  getForensicComputedStyles,
+  parseComputedStylesString,
+  getDetailedComputedStyles,
+  getComputedStylesSnapshot,
+  getAccessibilityInfo,
+  getFullElementPath,
+  getNearbyElements,
 } from "./utils/element-identification";
 
 // Svelte component detection
@@ -44,11 +56,52 @@ export {
   type SvelteDetectionMode,
 } from "./utils/svelte-detection";
 
+// Storage utilities
 export {
   loadAnnotations,
   saveAnnotations,
   getStorageKey,
+  clearAnnotations,
+  loadAllAnnotations,
+  // Sync markers
+  saveAnnotationsWithSyncMarker,
+  getUnsyncedAnnotations,
+  clearSyncMarkers,
+  // Session storage
+  getSessionStorageKey,
+  loadSessionId,
+  saveSessionId,
+  clearSessionId,
 } from "./utils/storage";
 
+// Server sync utilities
+export {
+  listSessions,
+  createSession,
+  getSession,
+  syncAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
+  requestAction,
+  type ActionResponse,
+} from "./utils/sync";
+
+// Freeze animations utilities
+export {
+  freeze,
+  unfreeze,
+  originalSetTimeout,
+  originalSetInterval,
+} from "./utils/freeze-animations";
+
 // Types
-export type { Annotation } from "./types";
+export type {
+  Annotation,
+  AnnotationIntent,
+  AnnotationSeverity,
+  AnnotationStatus,
+  Session,
+  SessionStatus,
+  SessionWithAnnotations,
+  ThreadMessage,
+} from "./types";

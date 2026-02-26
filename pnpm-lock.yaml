@@ -25,6 +25,9 @@ importers:
 
   _package-export/example:
     dependencies:
+      agentation:
+        specifier: ^2.2.1
+        version: 2.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       agentation-svelte:
         specifier: workspace:*
         version: link:..
@@ -510,6 +513,17 @@ packages:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  agentation@2.2.1:
+    resolution: {integrity: sha512-yV9P1DggI7M3SRaRwLwt+xqE5lXqg5l8xtqCr8KzEkbnH8Wa6eRATU97uKnD7cC8FrsJP62Mmw0Xf5Xi5KV50Q==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   ansis@3.17.0:
     resolution: {integrity: sha512-0qWUglt9JEqLFr3w1I1pbrChn1grhaiAR2ocX1PP/flRmxgtwTzPFFFnfIlD6aMOLQZgSuCRlidD70lvx8yhzg==}
@@ -1241,6 +1255,11 @@ snapshots:
       valibot: 1.0.0(typescript@5.9.3)
 
   acorn@8.15.0: {}
+
+  agentation@2.2.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   ansis@3.17.0: {}
 

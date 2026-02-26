@@ -1,8 +1,13 @@
 // Annotation Popup - CSS-only version (no framer-motion)
 // Uses CSS animations for all transitions
 
+// Protect stroke-based icons from host page `svg { fill: currentColor }` rules.
+svg[fill="none"] {
+  fill: none !important;
+}
+
 $blue: #3c82f7;
-$green: #34C759;
+$green: #34c759;
 
 // =============================================================================
 // Animation Keyframes
@@ -68,14 +73,12 @@ $green: #34C759;
   will-change: transform, opacity;
   contain: layout style;
 
-  // Initial state (before animation)
   opacity: 0;
 
   &.enter {
     animation: popupEnter 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 
-  // After enter animation completes, set stable state
   &.entered {
     opacity: 1;
     transform: translateX(-50%) scale(1) translateY(0);
@@ -85,7 +88,6 @@ $green: #34C759;
     animation: popupExit 0.15s ease-in forwards;
   }
 
-  // Shake needs entered state to be stable first
   &.entered.shake {
     animation: shake 0.25s ease-out;
   }
@@ -99,18 +101,87 @@ $green: #34C759;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5625rem;
 }
 
 .element {
   font-size: 0.75rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.65);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.headerToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+
+  .element {
+    flex: 1;
+  }
+}
+
+.chevron {
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+
+  &.expanded {
+    transform: rotate(90deg);
+  }
+}
+
+// =============================================================================
+// Computed Styles Block
+// =============================================================================
+
+.stylesWrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.expanded {
+    grid-template-rows: 1fr;
+  }
+}
+
+.stylesInner {
+  overflow: hidden;
+}
+
+.stylesBlock {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  margin-bottom: 0.5rem;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.styleLine {
+  color: rgba(255, 255, 255, 0.85);
+  word-break: break-word;
+}
+
+.styleProperty {
+  color: #c792ea;
+}
+
+.styleValue {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .timestamp {
@@ -127,9 +198,9 @@ $green: #34C759;
 // =============================================================================
 
 .quote {
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.5rem;
   background: rgba(255, 255, 255, 0.05);
@@ -224,6 +295,37 @@ $green: #34C759;
   }
 }
 
+// Delete button wrapper
+.deleteWrapper {
+  margin-right: auto;
+}
+
+.deleteButton {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+
+  &:hover {
+    background: rgba(255, 59, 48, 0.25);
+    color: #ff3b30;
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
 // =============================================================================
 // Light Mode
 // =============================================================================
@@ -242,6 +344,26 @@ $green: #34C759;
 
   .timestamp {
     color: rgba(0, 0, 0, 0.4);
+  }
+
+  .chevron {
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  .stylesBlock {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .styleLine {
+    color: rgba(0, 0, 0, 0.75);
+  }
+
+  .styleProperty {
+    color: #7c3aed;
+  }
+
+  .styleValue {
+    color: rgba(0, 0, 0, 0.75);
   }
 
   .quote {
@@ -269,6 +391,15 @@ $green: #34C759;
     &:hover {
       background: rgba(0, 0, 0, 0.06);
       color: rgba(0, 0, 0, 0.75);
+    }
+  }
+
+  .deleteButton {
+    color: rgba(0, 0, 0, 0.4);
+
+    &:hover {
+      background: rgba(255, 59, 48, 0.15);
+      color: #ff3b30;
     }
   }
 }

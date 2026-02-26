@@ -2,8 +2,62 @@
 // Element Identification Utilities
 // =============================================================================
 
+// =============================================================================
+// Shadow DOM Helpers
+// =============================================================================
+
+/**
+ * Gets the parent element, crossing shadow DOM boundaries.
+ * When inside a shadow root with no parentElement, returns the shadow host.
+ */
+function getParentElement(element: Element): Element | null {
+  if (element.parentElement) {
+    return element.parentElement;
+  }
+  const root = element.getRootNode();
+  if (root instanceof ShadowRoot) {
+    return root.host;
+  }
+  return null;
+}
+
+/**
+ * Finds the closest ancestor matching a selector, crossing shadow DOM boundaries.
+ */
+export function closestCrossingShadow(element: Element, selector: string): Element | null {
+  let current: Element | null = element;
+  while (current) {
+    if (current.matches(selector)) return current;
+    current = getParentElement(current);
+  }
+  return null;
+}
+
+/**
+ * Checks if an element is inside a shadow DOM
+ */
+export function isInShadowDOM(element: Element): boolean {
+  return element.getRootNode() instanceof ShadowRoot;
+}
+
+/**
+ * Gets the shadow host for an element, or null if not in shadow DOM
+ */
+export function getShadowHost(element: Element): Element | null {
+  const root = element.getRootNode();
+  if (root instanceof ShadowRoot) {
+    return root.host;
+  }
+  return null;
+}
+
+// =============================================================================
+// Element Path Utilities
+// =============================================================================
+
 /**
  * Gets a readable path for an element (e.g., "article > section > p")
+ * Supports elements inside shadow DOM by crossing shadow boundaries.
  */
 export function getElementPath(target: HTMLElement, maxDepth = 4): string {
   const parts: string[] = [];
@@ -29,8 +83,14 @@ export function getElementPath(target: HTMLElement, maxDepth = 4): string {
       }
     }
 
+    // Mark shadow boundary crossings
+    const nextParent = getParentElement(current);
+    if (!current.parentElement && nextParent) {
+      identifier = `⟨shadow⟩ ${identifier}`;
+    }
+
     parts.unshift(identifier);
-    current = current.parentElement;
+    current = nextParent as HTMLElement | null;
     depth++;
   }
 
@@ -51,11 +111,11 @@ export function identifyElement(target: HTMLElement): { name: string; path: stri
 
   // SVG elements
   if (["path", "circle", "rect", "line", "g"].includes(tag)) {
-    // Try to find parent SVG context
-    const svg = target.closest("svg");
+    // Try to find parent SVG context (crossing shadow boundaries)
+    const svg = closestCrossingShadow(target, "svg");
     if (svg) {
-      const parent = svg.parentElement;
-      if (parent) {
+      const parent = getParentElement(svg);
+      if (parent instanceof HTMLElement) {
         const parentName = identifyElement(parent).name;
         return { name: `graphic in ${parentName}`, path };
       }
@@ -63,7 +123,7 @@ export function identifyElement(target: HTMLElement): { name: string; path: stri
     return { name: "graphic element", path };
   }
   if (tag === "svg") {
-    const parent = target.parentElement;
+    const parent = getParentElement(target);
     if (parent?.tagName.toLowerCase() === "button") {
       const btnText = parent.textContent?.trim();
       return { name: btnText ? `icon in "${btnText}" button` : "button icon", path };
@@ -244,13 +304,19 @@ export function identifyAnimationElement(target: HTMLElement): string {
 }
 
 /**
- * Gets nearby sibling elements for structural context
+ * Gets nearby sibling elements for structural context.
+ * Supports elements inside shadow DOM.
  */
 export function getNearbyElements(element: HTMLElement): string {
-  const parent = element.parentElement;
+  const parent = getParentElement(element);
   if (!parent) return "";
 
-  const siblings = Array.from(parent.children).filter(
+  const elementRoot = element.getRootNode();
+  const children = (elementRoot instanceof ShadowRoot && element.parentElement)
+    ? Array.from(element.parentElement.children)
+    : Array.from(parent.children);
+
+  const siblings = children.filter(
     (child) => child !== element && child instanceof HTMLElement
   ) as HTMLElement[];
 
@@ -358,40 +424,119 @@ export function getComputedStylesSnapshot(target: HTMLElement): string {
   return parts.join(", ");
 }
 
+// Values to filter out when collecting computed styles (browser defaults / uninteresting)
+const DEFAULT_STYLE_VALUES = new Set([
+  "none", "normal", "auto", "0px", "rgba(0, 0, 0, 0)", "transparent", "static", "visible"
+]);
+
+// Element type categories for style property selection
+const TEXT_ELEMENTS = new Set([
+  "p", "span", "h1", "h2", "h3", "h4", "h5", "h6", "label", "li", "td", "th",
+  "blockquote", "figcaption", "caption", "legend", "dt", "dd", "pre", "code",
+  "em", "strong", "b", "i", "a", "time", "cite", "q"
+]);
+const FORM_INPUT_ELEMENTS = new Set(["input", "textarea", "select"]);
+const MEDIA_ELEMENTS = new Set(["img", "video", "canvas", "svg"]);
+const CONTAINER_ELEMENTS = new Set([
+  "div", "section", "article", "nav", "header", "footer", "aside", "main",
+  "ul", "ol", "form", "fieldset"
+]);
+
 /**
- * Gets detailed computed styles for forensic-level debugging
+ * Gets key computed styles for the annotation popup display.
+ * Returns different properties based on element type to show the most relevant
+ * CSS properties for debugging (e.g., typography for text, layout for containers).
  */
 export function getDetailedComputedStyles(target: HTMLElement): Record<string, string> {
   if (typeof window === "undefined") return {};
 
   const styles = window.getComputedStyle(target);
   const result: Record<string, string> = {};
+  const tag = target.tagName.toLowerCase();
 
-  // All the properties that are commonly relevant for debugging
-  const properties = [
-    // Colors
-    "color", "backgroundColor", "borderColor",
-    // Typography
-    "fontSize", "fontWeight", "fontFamily", "lineHeight", "letterSpacing", "textAlign",
-    // Box model
-    "width", "height", "padding", "margin", "border", "borderRadius",
-    // Layout
-    "display", "position", "top", "right", "bottom", "left", "zIndex",
-    "flexDirection", "justifyContent", "alignItems", "gap",
-    // Visual
-    "opacity", "visibility", "overflow", "boxShadow",
-    // Transform
-    "transform",
-  ];
+  let properties: string[];
+
+  if (TEXT_ELEMENTS.has(tag)) {
+    properties = ["color", "fontSize", "fontWeight", "fontFamily", "lineHeight"];
+  } else if (tag === "button" || (tag === "a" && target.getAttribute("role") === "button")) {
+    properties = ["backgroundColor", "color", "padding", "borderRadius", "fontSize"];
+  } else if (FORM_INPUT_ELEMENTS.has(tag)) {
+    properties = ["backgroundColor", "color", "padding", "borderRadius", "fontSize"];
+  } else if (MEDIA_ELEMENTS.has(tag)) {
+    properties = ["width", "height", "objectFit", "borderRadius"];
+  } else if (CONTAINER_ELEMENTS.has(tag)) {
+    properties = ["display", "padding", "margin", "gap", "backgroundColor"];
+  } else {
+    properties = ["color", "fontSize", "margin", "padding", "backgroundColor"];
+  }
 
   for (const prop of properties) {
-    const value = styles.getPropertyValue(prop.replace(/([A-Z])/g, "-$1").toLowerCase());
-    if (value && value !== "none" && value !== "normal" && value !== "auto" && value !== "0px" && value !== "rgba(0, 0, 0, 0)") {
+    const cssPropertyName = prop.replace(/([A-Z])/g, "-$1").toLowerCase();
+    const value = styles.getPropertyValue(cssPropertyName);
+    if (value && !DEFAULT_STYLE_VALUES.has(value)) {
       result[prop] = value;
     }
   }
 
   return result;
+}
+
+// Comprehensive list of CSS properties for forensic output
+const FORENSIC_PROPERTIES = [
+  "color", "backgroundColor", "borderColor",
+  "fontSize", "fontWeight", "fontFamily", "lineHeight", "letterSpacing", "textAlign",
+  "width", "height", "padding", "margin", "border", "borderRadius",
+  "display", "position", "top", "right", "bottom", "left", "zIndex",
+  "flexDirection", "justifyContent", "alignItems", "gap",
+  "opacity", "visibility", "overflow", "boxShadow",
+  "transform",
+];
+
+/**
+ * Gets full computed styles for forensic output.
+ * Returns a comprehensive semicolon-separated string of all relevant CSS properties.
+ */
+export function getForensicComputedStyles(target: HTMLElement): string {
+  if (typeof window === "undefined") return "";
+
+  const styles = window.getComputedStyle(target);
+  const parts: string[] = [];
+
+  for (const prop of FORENSIC_PROPERTIES) {
+    const cssPropertyName = prop.replace(/([A-Z])/g, "-$1").toLowerCase();
+    const value = styles.getPropertyValue(cssPropertyName);
+    if (value && !DEFAULT_STYLE_VALUES.has(value)) {
+      parts.push(`${cssPropertyName}: ${value}`);
+    }
+  }
+
+  return parts.join("; ");
+}
+
+/**
+ * Parses a forensic computed styles string back into a Record.
+ * Inverse of getForensicComputedStyles - used when editing annotations.
+ */
+export function parseComputedStylesString(
+  stylesStr: string | undefined,
+): Record<string, string> | undefined {
+  if (!stylesStr) return undefined;
+
+  const result: Record<string, string> = {};
+  const parts = stylesStr.split(";").map((p) => p.trim()).filter(Boolean);
+
+  for (const part of parts) {
+    const colonIndex = part.indexOf(":");
+    if (colonIndex > 0) {
+      const key = part.slice(0, colonIndex).trim();
+      const value = part.slice(colonIndex + 1).trim();
+      if (key && value) {
+        result[key] = value;
+      }
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**
@@ -420,7 +565,8 @@ export function getAccessibilityInfo(target: HTMLElement): string {
 }
 
 /**
- * Gets full DOM ancestry path (for forensic mode)
+ * Gets full DOM ancestry path (for forensic mode).
+ * Supports elements inside shadow DOM by marking shadow boundary crossings.
  */
 export function getFullElementPath(target: HTMLElement): string {
   const parts: string[] = [];
@@ -440,8 +586,14 @@ export function getFullElementPath(target: HTMLElement): string {
       if (cls) identifier = `${tag}.${cls}`;
     }
 
+    // Mark shadow boundary crossings
+    const nextParent = getParentElement(current);
+    if (!current.parentElement && nextParent) {
+      identifier = `⟨shadow⟩ ${identifier}`;
+    }
+
     parts.unshift(identifier);
-    current = current.parentElement;
+    current = nextParent as HTMLElement | null;
   }
 
   return parts.join(" > ");

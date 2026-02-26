@@ -6,6 +6,7 @@
     IconPausePlayAnimated,
     IconEyeAnimated,
     IconCopyAnimated,
+    IconSendArrow,
     IconTrashAlt,
     IconGear,
     IconXmarkLarge,
@@ -34,7 +35,18 @@
     loadAnnotations,
     saveAnnotations,
     getStorageKey,
+    loadSessionId,
+    saveSessionId,
   } from '../../utils/storage';
+  import {
+    createSession,
+    syncAnnotation,
+    requestAction,
+  } from '../../utils/sync';
+  import {
+    getForensicComputedStyles,
+    parseComputedStylesString,
+  } from '../../utils/element-identification';
 
   import type { Annotation } from '../../types';
   import styles from './styles.module.scss';
@@ -114,7 +126,12 @@
     onAnnotationUpdate?: (annotation: Annotation) => void;
     onAnnotationsClear?: (annotations: Annotation[]) => void;
     onCopy?: (markdown: string) => void;
+    onSubmit?: (output: string, annotations: Annotation[]) => void;
     copyToClipboard?: boolean;
+    endpoint?: string;
+    sessionId?: string;
+    onSessionCreated?: (sessionId: string) => void;
+    webhookUrl?: string;
   }
 
   let {
@@ -126,7 +143,12 @@
     onAnnotationUpdate,
     onAnnotationsClear,
     onCopy,
+    onSubmit,
     copyToClipboard = true,
+    endpoint,
+    sessionId: sessionIdProp,
+    onSessionCreated,
+    webhookUrl,
   }: Props = $props();
 
   // =============================================================================
@@ -319,6 +341,11 @@
 
   // Multi-select drag state
   let isDragging = $state(false);
+
+  // Send to agent state
+  let sendState = $state<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  let currentSessionId = $state<string | null>(null);
+  let markerClickBehavior = $state<'delete' | 'edit'>('delete');
 
   // Non-reactive refs (using regular variables)
   let justFinishedToolbarDragRef = false;
@@ -644,6 +671,50 @@
 
     if (settings.autoClearAfterCopy) {
       setTimeout(() => clearAll(), 500);
+    }
+  }
+
+  async function sendToAgent() {
+    if (sendState === 'sending' || annotations.length === 0) return;
+
+    const output = generateOutput(annotations, pathname, settings.outputDetail);
+    if (!output) return;
+
+    sendState = 'sending';
+
+    try {
+      if (onSubmit) {
+        onSubmit(output, annotations);
+      }
+
+      if (endpoint) {
+        let sid = currentSessionId || sessionIdProp || loadSessionId(pathname);
+
+        if (!sid) {
+          const session = await createSession(endpoint, window.location.href);
+          sid = session.id;
+          currentSessionId = sid;
+          saveSessionId(pathname, sid);
+          onSessionCreated?.(sid);
+        }
+
+        for (const annotation of annotations) {
+          await syncAnnotation(endpoint, sid, annotation);
+        }
+
+        await requestAction(endpoint, sid, output);
+      }
+
+      sendState = 'sent';
+      setTimeout(() => (sendState = 'idle'), 2000);
+
+      if (settings.autoClearAfterCopy) {
+        setTimeout(() => clearAll(), 500);
+      }
+    } catch (e) {
+      console.warn('[agentation] Send failed:', e);
+      sendState = 'failed';
+      setTimeout(() => (sendState = 'idle'), 2000);
     }
   }
 
@@ -1451,6 +1522,20 @@
         <IconCopyAnimated size={24} {copied} />
       </button>
 
+      {#if onSubmit || endpoint}
+        <button
+          class="{styles.controlButton} {!isDarkMode ? styles.light : ''}"
+          onclick={(e) => {
+            e.stopPropagation();
+            sendToAgent();
+          }}
+          disabled={!hasAnnotations || sendState === 'sending'}
+          title="Send to agent"
+        >
+          <IconSendArrow size={24} state={sendState} />
+        </button>
+      {/if}
+
       <button
         class="{styles.controlButton} {!isDarkMode ? styles.light : ''}"
         onclick={(e) => {
@@ -1650,6 +1735,33 @@
         <label class={styles.settingsToggle}>
           <input
             type="checkbox"
+            id="markerClickEdit"
+            checked={markerClickBehavior === 'edit'}
+            onchange={() => {
+              markerClickBehavior = markerClickBehavior === 'edit' ? 'delete' : 'edit';
+            }}
+          />
+          <label
+            class="{styles.customCheckbox} {markerClickBehavior === 'edit' ? styles.checked : ''}"
+            for="markerClickEdit"
+          >
+            {#if markerClickBehavior === 'edit'}
+              <IconCheckSmallAnimated size={14} />
+            {/if}
+          </label>
+          <span class="{styles.toggleLabel} {!isDarkMode ? styles.light : ''}">
+            Click markers to edit
+            <span
+              class={styles.helpIcon}
+              data-tooltip="When enabled, clicking a marker opens edit mode instead of deleting"
+            >
+              <IconHelp size={20} />
+            </span>
+          </span>
+        </label>
+        <label class={styles.settingsToggle}>
+          <input
+            type="checkbox"
             id="blockInteractions"
             bind:checked={settings.blockInteractions}
           />
@@ -1703,12 +1815,24 @@
         onmouseleave={() => (hoveredMarkerId = null)}
         onclick={(e) => {
           e.stopPropagation();
-          if (!markersExiting) deleteAnnotation(annotation.id);
+          if (!markersExiting) {
+            if (markerClickBehavior === 'edit') {
+              startEditAnnotation(annotation);
+            } else {
+              deleteAnnotation(annotation.id);
+            }
+          }
         }}
         oncontextmenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!markersExiting) startEditAnnotation(annotation);
+          if (!markersExiting) {
+            if (markerClickBehavior === 'edit') {
+              deleteAnnotation(annotation.id);
+            } else {
+              startEditAnnotation(annotation);
+            }
+          }
         }}
         role="button"
         tabindex="0"
@@ -1791,12 +1915,24 @@
         onmouseleave={() => (hoveredMarkerId = null)}
         onclick={(e) => {
           e.stopPropagation();
-          if (!markersExiting) deleteAnnotation(annotation.id);
+          if (!markersExiting) {
+            if (markerClickBehavior === 'edit') {
+              startEditAnnotation(annotation);
+            } else {
+              deleteAnnotation(annotation.id);
+            }
+          }
         }}
         oncontextmenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!markersExiting) startEditAnnotation(annotation);
+          if (!markersExiting) {
+            if (markerClickBehavior === 'edit') {
+              deleteAnnotation(annotation.id);
+            } else {
+              startEditAnnotation(annotation);
+            }
+          }
         }}
         role="button"
         tabindex="0"
@@ -1935,6 +2071,7 @@
         isExiting={pendingExiting}
         lightMode={!isDarkMode}
         accentColor={pendingAnnotation.isMultiSelect ? '#34C759' : settings.annotationColor}
+        computedStyles={pendingAnnotation.computedStyles ? parseComputedStylesString(pendingAnnotation.computedStyles) : undefined}
         style="left: {Math.max(
           160,
           Math.min(window.innerWidth - 160, (pendingAnnotation.x / 100) * window.innerWidth)
@@ -1970,9 +2107,18 @@
         submitLabel="Save"
         onSubmit={updateAnnotation}
         onCancel={cancelEditAnnotation}
+        onDelete={() => {
+          const id = editingAnnotation?.id;
+          if (id) {
+            editingAnnotation = null;
+            editExiting = false;
+            deleteAnnotation(id);
+          }
+        }}
         isExiting={editExiting}
         lightMode={!isDarkMode}
         accentColor={editingAnnotation.isMultiSelect ? '#34C759' : settings.annotationColor}
+        computedStyles={editingAnnotation.computedStyles ? parseComputedStylesString(editingAnnotation.computedStyles) : undefined}
         style="left: {Math.max(
           160,
           Math.min(window.innerWidth - 160, (editingAnnotation.x / 100) * window.innerWidth)

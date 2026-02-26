@@ -45,3 +45,121 @@ export function clearAnnotations(pathname: string): void {
     // ignore
   }
 }
+
+/**
+ * Load all annotations from localStorage across all pages.
+ * Returns a map of pathname -> annotations.
+ */
+export function loadAllAnnotations<T = Annotation>(): Map<string, T[]> {
+  const result = new Map<string, T[]>();
+  if (typeof window === "undefined") return result;
+
+  try {
+    const cutoff = Date.now() - DEFAULT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(STORAGE_PREFIX)) {
+        const pathname = key.slice(STORAGE_PREFIX.length);
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const data = JSON.parse(stored);
+          const filtered = data.filter(
+            (a: { timestamp?: number }) => !a.timestamp || a.timestamp > cutoff
+          );
+          if (filtered.length > 0) {
+            result.set(pathname, filtered);
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore errors
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Sync Marker Utilities
+// =============================================================================
+
+type AnnotationWithSyncMarker = Annotation & { _syncedTo?: string };
+
+/**
+ * Save annotations with a sync marker indicating they've been synced to a session.
+ */
+export function saveAnnotationsWithSyncMarker(
+  pathname: string,
+  annotations: Annotation[],
+  sessionId: string
+): void {
+  const marked = annotations.map((annotation) => ({
+    ...annotation,
+    _syncedTo: sessionId,
+  }));
+  saveAnnotations(pathname, marked);
+}
+
+/**
+ * Get annotations that haven't been synced to the given session.
+ */
+export function getUnsyncedAnnotations(
+  pathname: string,
+  sessionId?: string
+): Annotation[] {
+  const annotations = loadAnnotations<AnnotationWithSyncMarker>(pathname);
+  return annotations.filter((annotation) => {
+    if (!annotation._syncedTo) return true;
+    if (sessionId && annotation._syncedTo !== sessionId) return true;
+    return false;
+  });
+}
+
+/**
+ * Remove `_syncedTo` markers from all annotations for a pathname.
+ */
+export function clearSyncMarkers(pathname: string): void {
+  const annotations = loadAnnotations<AnnotationWithSyncMarker>(pathname);
+  const cleaned = annotations.map((annotation) => {
+    const { _syncedTo, ...rest } = annotation;
+    return rest as Annotation;
+  });
+  saveAnnotations(pathname, cleaned);
+}
+
+// =============================================================================
+// Session Storage
+// =============================================================================
+
+const SESSION_PREFIX = "agentation-session-";
+
+export function getSessionStorageKey(pathname: string): string {
+  return `${SESSION_PREFIX}${pathname}`;
+}
+
+export function loadSessionId(pathname: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(getSessionStorageKey(pathname));
+  } catch {
+    return null;
+  }
+}
+
+export function saveSessionId(pathname: string, sessionId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getSessionStorageKey(pathname), sessionId);
+  } catch {
+    // localStorage might be full or disabled
+  }
+}
+
+export function clearSessionId(pathname: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(getSessionStorageKey(pathname));
+  } catch {
+    // ignore
+  }
+}

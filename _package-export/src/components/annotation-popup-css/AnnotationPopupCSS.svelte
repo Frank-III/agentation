@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import styles from './styles.module.scss';
+  import IconTrash from '../icons/IconTrash.svelte';
 
   // =============================================================================
   // Types
@@ -23,6 +24,8 @@
     onSubmit: (text: string) => void;
     /** Called when popup is cancelled/dismissed */
     onCancel: () => void;
+    /** Called when delete button is clicked (only shown if provided) */
+    onDelete?: () => void;
     /** Position styles (left, top) */
     style?: string;
     /** Custom color for submit button and textarea focus (hex) */
@@ -31,6 +34,8 @@
     isExiting?: boolean;
     /** Light mode styling */
     lightMode?: boolean;
+    /** Computed styles for the selected element */
+    computedStyles?: Record<string, string>;
   }
 
   let {
@@ -42,10 +47,12 @@
     submitLabel = 'Add',
     onSubmit,
     onCancel,
+    onDelete,
     style = '',
     accentColor = '#3c82f7',
     isExiting = false,
     lightMode = false,
+    computedStyles,
   }: Props = $props();
 
   // =============================================================================
@@ -56,12 +63,15 @@
   let isShaking = $state(false);
   let animState = $state<'initial' | 'enter' | 'entered' | 'exit'>('initial');
   let isFocused = $state(false);
+  let isStylesExpanded = $state(false);
   let textareaRef: HTMLTextAreaElement | null = $state(null);
   let popupRef: HTMLDivElement | null = $state(null);
 
   // =============================================================================
   // Derived
   // =============================================================================
+
+  let hasComputedStyles = $derived(computedStyles && Object.keys(computedStyles).length > 0);
 
   let popupClassName = $derived(
     [
@@ -105,7 +115,7 @@
     animState = 'exit';
     setTimeout(() => {
       onCancel();
-    }, 150); // Match exit animation duration
+    }, 150);
   }
 
   // Handle submit
@@ -125,20 +135,32 @@
     }
   }
 
+  // Toggle computed styles accordion
+  function toggleStyles() {
+    const wasExpanded = isStylesExpanded;
+    isStylesExpanded = !isStylesExpanded;
+    if (wasExpanded) {
+      setTimeout(() => textareaRef?.focus(), 0);
+    }
+  }
+
+  // Convert camelCase to kebab-case for CSS property display
+  function toKebabCase(str: string): string {
+    return str.replace(/([A-Z])/g, '-$1').toLowerCase();
+  }
+
   // =============================================================================
   // Lifecycle
   // =============================================================================
 
   onMount(() => {
-    // Start enter animation
     requestAnimationFrame(() => {
       animState = 'enter';
     });
 
-    // Transition to entered state after animation completes
     const enterTimer = setTimeout(() => {
       animState = 'entered';
-    }, 200); // Match animation duration
+    }, 200);
 
     const focusTimer = setTimeout(() => {
       if (textareaRef) {
@@ -164,11 +186,51 @@
   role="dialog"
 >
   <div class={styles.header}>
-    <span class={styles.element}>{element}</span>
+    {#if hasComputedStyles}
+      <button
+        class={styles.headerToggle}
+        onclick={toggleStyles}
+        type="button"
+      >
+        <svg
+          class="{styles.chevron} {isStylesExpanded ? styles.expanded : ''}"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.5 10.25L9 7.25L5.75 4"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class={styles.element}>{element}</span>
+      </button>
+    {:else}
+      <span class={styles.element}>{element}</span>
+    {/if}
     {#if timestamp}
       <span class={styles.timestamp}>{timestamp}</span>
     {/if}
   </div>
+
+  {#if hasComputedStyles && computedStyles}
+    <div class="{styles.stylesWrapper} {isStylesExpanded ? styles.expanded : ''}">
+      <div class={styles.stylesInner}>
+        <div class={styles.stylesBlock}>
+          {#each Object.entries(computedStyles) as [key, value]}
+            <div class={styles.styleLine}>
+              <span class={styles.styleProperty}>{toKebabCase(key)}</span>: <span class={styles.styleValue}>{value}</span>;
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if selectedText}
     <div class={styles.quote}>
@@ -189,6 +251,13 @@
   ></textarea>
 
   <div class={styles.actions}>
+    {#if onDelete}
+      <div class={styles.deleteWrapper}>
+        <button class={styles.deleteButton} onclick={onDelete} type="button">
+          <IconTrash size={22} />
+        </button>
+      </div>
+    {/if}
     <button class={styles.cancel} onclick={handleCancel}>
       Cancel
     </button>
