@@ -3,12 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "pnpm": {
-    "onlyBuiltDependencies": ["@parcel/watcher", "rolldown"]
+    "onlyBuiltDependencies": ["@parcel/watcher", "rolldown", "esbuild"]
   },
   "scripts": {
-    "dev": "pnpm --filter agentation watch & pnpm --filter feedback-tool-example dev",
-    "build": "pnpm --filter agentation build",
-    "example": "pnpm --filter feedback-tool-example dev",
+    "dev": "pnpm --filter agentation-svelte watch & pnpm --filter agentation-example dev",
+    "build": "pnpm --filter agentation-svelte build",
+    "example": "pnpm --filter agentation-example dev",
     "pack": "cd _package-export && pnpm pack"
   }
 }
